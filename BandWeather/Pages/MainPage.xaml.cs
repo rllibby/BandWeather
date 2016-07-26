@@ -225,9 +225,9 @@ namespace BandWeather.Pages
         /// </summary>
         /// <param name="sender">The sender of the event.</param>
         /// <param name="e">The event arguments.</param>
-        private void AddTile(object sender, RoutedEventArgs e)
+        private async void AddTile(object sender, RoutedEventArgs e)
         {
-            RunBandCheck();
+            await RunBandCheck();
         }
 
         /// <summary>
@@ -235,9 +235,9 @@ namespace BandWeather.Pages
         /// </summary>
         /// <param name="sender">The sender of the event.</param>
         /// <param name="e">The event arguments.</param>
-        private void RemoveTile(object sender, RoutedEventArgs e)
+        private async void RemoveTile(object sender, RoutedEventArgs e)
         {
-            DeleteTile();
+            await DeleteTile();
         }
 
         /// <summary>
@@ -431,7 +431,7 @@ namespace BandWeather.Pages
         /// <summary>
         /// Async method to remove the application tile from the Microsoft band.
         /// </summary>
-        private async void DeleteTile()
+        private async Task DeleteTile()
         {
             string error = null;
 
@@ -439,13 +439,9 @@ namespace BandWeather.Pages
             {
                 _viewModel.IsSyncing = true;
 
-                var localSettings = ApplicationData.Current.LocalSettings;
-
-                localSettings.Values[Common.LastSyncKey] = null;
-
                 UnregisterTask();
 
-                var pairedBands = await BandClientManager.Instance.GetBandsAsync();
+                var pairedBands = await BandClientManager.Instance.GetBandsAsync(false);
 
                 if (pairedBands.Length < 1)
                 {
@@ -494,7 +490,7 @@ namespace BandWeather.Pages
         /// <summary>
         /// Ensures that a band is paired and attempts to add the tile if not already added.
         /// </summary>
-        private async void RunBandCheck()
+        private async Task RunBandCheck()
         {
             string error = null;
 
@@ -587,7 +583,7 @@ namespace BandWeather.Pages
                 var point = await GetLocation();
                 var response = await Forecast.GetForecast(point);
 
-                var pairedBands = await BandClientManager.Instance.GetBandsAsync();
+                var pairedBands = await BandClientManager.Instance.GetBandsAsync(false);
 
                 if (pairedBands.Length < 1)
                 {
@@ -611,37 +607,10 @@ namespace BandWeather.Pages
                         return;
                     }
 
-                    var pages = new List<PageData>();
-                    var title = new TextBlockData(Common.TitleId, "Now");
-                    var subtitle = new TextBlockData(Common.SecondaryTitleId, response.Weather);
-                    var spacer = new TextBlockData(Common.SpacerId, "|");
-                    var icon = new IconData(Common.IconId, (ushort)(2));
-                    var content = new TextBlockData(Common.ContentId, string.Format("{0}º", response.Temp.ToString()));
-
-                    pages.Add(new PageData(Guid.NewGuid(), 0, title, spacer, subtitle, icon, content));
-
-                    foreach (var day in response.Days)
-                    {
-                        title = new TextBlockData(Common.TitleId, day.Day);
-                        subtitle = new TextBlockData(Common.SecondaryTitleId, day.Weather);
-                        spacer = new TextBlockData(Common.SpacerId, "|");
-                        content = new TextBlockData(Common.ContentId, string.Format("{0}º/{1}º", day.High, day.Low));
-
-                        pages.Add(new PageData(Guid.NewGuid(), 1, title, spacer, subtitle, content));
-                    }
-
-                    var description = string.Format("Updated\n{0}\n{1}\n", DateTime.Now.ToString(Common.DateFormat), response.City);
-                    var updated = new WrappedTextBlockData(Common.UpdateId, description);
-
-                    pages.Add(new PageData(Guid.NewGuid(), 2, updated));
-                    pages.Reverse();
+                    var pages = BandUpdate.GeneratePageData(response);
 
                     await bandClient.TileManager.RemovePagesAsync(new Guid(Common.TileGuid));
-                    await bandClient.TileManager.SetPagesAsync(new Guid(Common.TileGuid), pages);
-
-                    var localSettings = ApplicationData.Current.LocalSettings;
-
-                    localSettings.Values[Common.LastSyncKey] = DateTime.Now.ToString(Common.DateFormat);
+                    await bandClient.TileManager.SetPagesAsync(new Guid(Common.TileGuid), pages as IEnumerable<PageData>);
 
                     error = Dialogs.Synced;
                 }
@@ -677,7 +646,7 @@ namespace BandWeather.Pages
             GetTaskRegistration();
             DataContext = _viewModel = App.Current;
 
-            if (e.NavigationMode == NavigationMode.New) Dispatcher.RunAsync(CoreDispatcherPriority.Normal, RunBandCheck);
+            if (e.NavigationMode == NavigationMode.New) Dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () => { await RunBandCheck(); });
         }
 
         #endregion

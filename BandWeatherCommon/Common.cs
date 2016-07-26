@@ -36,13 +36,6 @@ namespace BandWeatherCommon
         }
 
         /// <summary>
-        /// The last update title.
-        /// </summary>
-        public static string LastUpdate
-        {
-            get { return "Last Update"; }
-        }
-        /// <summary>
         /// The date format used by application.
         /// </summary>
         public static string DateFormat

@@ -81,7 +81,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SmartConnect.cs" />
     <Compile Include="BandWeatherSystemTask.cs" />
     <Compile Include="BandWeatherTimerTask.cs" />
     <Compile Include="SyncTask.cs" />

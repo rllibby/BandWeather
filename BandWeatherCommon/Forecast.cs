@@ -103,17 +103,17 @@ namespace BandWeatherCommon
 
                 using (var response = await client.GetAsync(url))
                 {
-                    dynamic dyn = JsonConvert.DeserializeObject(await response.Content.ReadAsStringAsync());
+                    dynamic f = JsonConvert.DeserializeObject(await response.Content.ReadAsStringAsync());
 
                     var result = new ForecastData();
 
-                    result.City = dyn.current_observation.display_location.city;
-                    result.Temp = dyn.current_observation.temp_f;
-                    result.Weather = dyn.current_observation.weather;
+                    result.City = f.current_observation.display_location.city;
+                    result.Temp = f.current_observation.temp_f;
+                    result.Weather = f.current_observation.weather;
 
                     for (var i = 0; i < 5; i++)
                     {
-                        dynamic day = dyn.forecast.simpleforecast.forecastday[i];
+                        dynamic day = f.forecast.simpleforecast.forecastday[i];
 
                         result.Days.Add(new DayData { Day = day.date.weekday_short, High = day.high.fahrenheit, Low = day.low.fahrenheit, Weather = day.conditions });
                     }

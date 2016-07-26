@@ -55,7 +55,7 @@ namespace BandWeatherTask
 
                 try
                 {
-                    waiter.WaitOne(TimeSpan.FromSeconds(30));
+                    waiter.WaitOne(TimeSpan.FromSeconds(10));
                 }
                 finally
                 {
@@ -80,96 +80,55 @@ namespace BandWeatherTask
 
             try
             {
-                var localSettings = ApplicationData.Current.LocalSettings;
                 var isCancelled = false;
 
                 BackgroundTaskCanceledEventHandler cancelled = (sender, reason) => { isCancelled = true; };
 
                 try
                 {
-                    if (taskInstance.TriggerDetails is DeviceConnectionChangeTriggerDetails)
-                    {
-                        var deviceDetails = taskInstance.TriggerDetails as DeviceConnectionChangeTriggerDetails;
-                        var device = await BluetoothDevice.FromIdAsync(deviceDetails.DeviceId);
-
-                        if (device.ConnectionStatus != BluetoothConnectionStatus.Connected) return;
-                    }
-
-                    taskInstance.Progress = 1;
-
-                    var point = GetLocation();
-
-                    taskInstance.Progress = 10;
-                    if (point == null) throw new Exception("Timed out while attempting to determine location.");
-                    if (isCancelled) return;
-
-                    taskInstance.Progress = 20;
-                    if (isCancelled) return;
-
-                    var response = await Forecast.GetForecast(point);
-
-                    taskInstance.Progress = 30;
-                    if (isCancelled) return;
-
                     var pairedBands = await BandClientManager.Instance.GetBandsAsync(true);
 
-                    taskInstance.Progress = 40;
+                    taskInstance.Progress = 10;
                     if ((pairedBands.Length < 1) || isCancelled) return;
 
-                    using (var bandClient = await SmartConnect.ConnectAsync(pairedBands[0], 5, 2000))
+                    using (var bandClient = await BandClientManager.Instance.ConnectAsync(pairedBands[0]))
                     {
-                        taskInstance.Progress = 50;
+                        taskInstance.Progress = 20;
                         if (isCancelled) return;
 
                         var tiles = await bandClient.TileManager.GetTilesAsync();
 
-                        taskInstance.Progress = 60;
+                        taskInstance.Progress = 30;
                         if (!tiles.Any() || isCancelled) return;
 
-                        var pages = new List<PageData>();
-                        var title = new TextBlockData(Common.TitleId, "Now");
-                        var subtitle = new TextBlockData(Common.SecondaryTitleId, response.Weather);
-                        var spacer = new TextBlockData(Common.SpacerId, "|");
-                        var icon = new IconData(Common.IconId, (ushort)(2));
-                        var content = new TextBlockData(Common.ContentId, string.Format("{0}º", response.Temp.ToString()));
+                        var point = GetLocation();
 
-                        pages.Add(new PageData(Guid.NewGuid(), 0, title, spacer, subtitle, icon, content));
+                        taskInstance.Progress = 40;
+                        if (point == null) throw new Exception("Timed out while attempting to determine location.");
+                        if (isCancelled) return;
 
-                        foreach (var day in response.Days)
-                        {
-                            title = new TextBlockData(Common.TitleId, day.Day);
-                            subtitle = new TextBlockData(Common.SecondaryTitleId, day.Weather);
-                            spacer = new TextBlockData(Common.SpacerId, "|");
-                            content = new TextBlockData(Common.ContentId, string.Format("{0}º/{1}º", day.High, day.Low));
+                        var response = await Forecast.GetForecast(point);
 
-                            pages.Add(new PageData(Guid.NewGuid(), 1, title, spacer, subtitle, content));
-                        }
+                        taskInstance.Progress = 50;
+                        if (isCancelled || (response == null)) return;
 
-                        var description = string.Format("Updated\n{0}\n{1}\n", DateTime.Now.ToString(Common.DateFormat), response.City);
-                        var updated = new WrappedTextBlockData(Common.UpdateId, description);
-
-                        pages.Add(new PageData(Guid.NewGuid(), 2, updated));
-                        pages.Reverse();
+                        var pages = BandUpdate.GeneratePageData(response);
+                        taskInstance.Progress = 60;
+                        if (isCancelled) return;
 
                         await bandClient.TileManager.RemovePagesAsync(new Guid(Common.TileGuid));
                         taskInstance.Progress = 80;
 
-                        await bandClient.TileManager.SetPagesAsync(new Guid(Common.TileGuid), pages);
-                        taskInstance.Progress = 90;
-
-                        localSettings.Values[Common.LastSyncKey] = DateTime.Now.ToString(Common.DateFormat);
-
+                        await bandClient.TileManager.SetPagesAsync(new Guid(Common.TileGuid), pages as IEnumerable<PageData>);
                         taskInstance.Progress = 100;
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    localSettings.Values[Common.LastSyncKey] = String.Format("Failed at {0}\r\n{1}", DateTime.Now.ToString(Common.DateFormat), ex.Message);
                 }
                 finally
                 {
                     taskInstance.Canceled -= cancelled;
-                    if (isCancelled) localSettings.Values[Common.LastSyncKey] = String.Format("Cancelled at {0}", DateTime.Now.ToString(Common.DateFormat));
                 }
             }
             finally
