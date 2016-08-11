@@ -580,9 +580,7 @@ namespace BandWeather.Pages
             {
                 _viewModel.IsSyncing = true;
 
-                var point = await GetLocation();
-                var response = await Forecast.GetForecast(point);
-
+                var response = await Forecast.GetForecast();
                 var pairedBands = await BandClientManager.Instance.GetBandsAsync(false);
 
                 if (pairedBands.Length < 1)

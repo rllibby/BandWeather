@@ -5,9 +5,6 @@
 using System;
 using System.Linq;
 using Windows.ApplicationModel.Background;
-using Windows.Devices.Bluetooth;
-using Windows.Devices.Enumeration;
-using Windows.Storage;
 using Microsoft.Band;
 using Microsoft.Band.Tiles.Pages;
 using BandWeatherCommon;
@@ -15,6 +12,7 @@ using Windows.Foundation;
 using Windows.Devices.Geolocation;
 using System.Threading;
 using System.Collections.Generic;
+using Windows.Services.Maps;
 
 namespace BandWeatherTask
 {
@@ -46,7 +44,7 @@ namespace BandWeatherTask
             {
                 TypedEventHandler<Geolocator, PositionChangedEventArgs> handler = (sender, args) =>
                 {
-                    result = args.Position.Coordinate.Point;
+                    result  = args.Position.Coordinate.Point;
 
                     waiter.Set();
                 };
@@ -101,13 +99,7 @@ namespace BandWeatherTask
                         taskInstance.Progress = 30;
                         if (!tiles.Any() || isCancelled) return;
 
-                        var point = GetLocation();
-
-                        taskInstance.Progress = 40;
-                        if (point == null) throw new Exception("Timed out while attempting to determine location.");
-                        if (isCancelled) return;
-
-                        var response = await Forecast.GetForecast(point);
+                        var response = await Forecast.GetForecast();
 
                         taskInstance.Progress = 50;
                         if (isCancelled || (response == null)) return;

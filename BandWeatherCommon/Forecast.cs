@@ -6,9 +6,11 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Devices.Geolocation;
 using Windows.Foundation;
+using Windows.Services.Maps;
 
 namespace BandWeatherCommon
 { 
@@ -89,17 +91,63 @@ namespace BandWeatherCommon
         #region Private methods
 
         /// <summary>
-        /// Gets the forecast for the specified location.
+        /// Gets the current location for the device.
         /// </summary>
-        /// <param name="point">The geo coordinate to get the forecast for.</param>
-        /// <returns>The poco object as the result of the json payload.</returns>
-        private static async Task<ForecastData> GetForecastPrivate(Geopoint point)
+        /// <returns>The geopoint for the current location.</returns>
+        private static Geopoint GetLocation()
         {
-            if (point == null) throw new ArgumentNullException("point");
+            Geopoint result = null;
+
+            var locater = new Geolocator
+            {
+                DesiredAccuracy = PositionAccuracy.Default,
+                DesiredAccuracyInMeters = 5000,
+                ReportInterval = 1000
+            };
+
+            if (locater.LocationStatus == PositionStatus.Disabled) return null;
+
+            using (var waiter = new ManualResetEvent(false))
+            {
+                TypedEventHandler<Geolocator, PositionChangedEventArgs> handler = (sender, args) =>
+                {
+                    result = args.Position.Coordinate.Point;
+
+                    waiter.Set();
+                };
+
+                locater.PositionChanged += handler;
+
+                try
+                {
+                    waiter.WaitOne(TimeSpan.FromSeconds(10));
+                }
+                finally
+                {
+                    locater.PositionChanged -= handler;
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Gets the forecast for the current location.
+        /// </summary>
+        /// <returns>The poco object as the result of the json payload.</returns>
+        private static async Task<ForecastData> GetForecastPrivate()
+        {
+            var point = GetLocation();
+
+            if (point == null) throw new Exception("Failed to obtain the device location.");
+
+            var location = await MapLocationFinder.FindLocationsAtAsync(point);
+
+            if ((location.Status != MapLocationFinderStatus.Success) || (location.Locations.Count < 1)) throw new Exception("Unable to perform address lookup using the current coordinates.");
 
             using (var client = new HttpClient())
             {
-                var url = string.Format(Common.ConditionsUri, Common.ApiKey, point.Position.Latitude, point.Position.Longitude);
+                var url = string.Format(Common.ConditionsUri, Common.ApiKey, location.Locations[0].Address.PostCode);
 
                 using (var response = await client.GetAsync(url))
                 {
@@ -111,11 +159,13 @@ namespace BandWeatherCommon
                     result.Temp = f.current_observation.temp_f;
                     result.Weather = f.current_observation.weather;
 
-                    for (var i = 0; i < 5; i++)
-                    {
-                        dynamic day = f.forecast.simpleforecast.forecastday[i];
+                    var index = 0;
 
+                    foreach (var day in f.forecast.simpleforecast.forecastday)
+                    {
                         result.Days.Add(new DayData { Day = day.date.weekday_short, High = day.high.fahrenheit, Low = day.low.fahrenheit, Weather = day.conditions });
+
+                        if (++index == 5) break;
                     }
 
                     return result;
@@ -130,11 +180,10 @@ namespace BandWeatherCommon
         /// <summary>
         /// Gets the forecast for the specified location.
         /// </summary>
-        /// <param name="point">The geo coordinate to get the forecast for.</param>
         /// <returns>The poco object as the result of the json payload.</returns>
-        public static IAsyncOperation<ForecastData> GetForecast(Geopoint point)
+        public static IAsyncOperation<ForecastData> GetForecast()
         {
-            return GetForecastPrivate(point).AsAsyncOperation();
+            return GetForecastPrivate().AsAsyncOperation();
         }
 
         #endregion
