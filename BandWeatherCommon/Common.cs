@@ -150,11 +150,15 @@ namespace BandWeatherCommon
         /// <summary>
         /// Returns the link to the wunderground api for conditions.
         /// </summary>
+        /// <remarks>
+        /// Param zero should be the developer key obtained from Wunderground. The second param is expected to be the
+        /// zip code (postal code) obtained from the reverse geocoding using the device location.
+        /// </remarks>
         public static string ConditionsUri
         {
             get
             {
-                return @"http://api.wunderground.com/api/{0}/conditions/hourly/forecast10day/q/{1:0.00},{2:0.00}.json";
+                return @"http://api.wunderground.com/api/{0}/conditions/hourly/forecast10day/q/{1}.json";
             }    
         }
 

@@ -5,9 +5,6 @@
 using System;
 using System.Linq;
 using Windows.ApplicationModel.Background;
-using Windows.Devices.Bluetooth;
-using Windows.Devices.Enumeration;
-using Windows.Storage;
 using Microsoft.Band;
 using Microsoft.Band.Tiles.Pages;
 using BandWeatherCommon;
@@ -16,6 +13,7 @@ using Windows.Devices.Geolocation;
 using System.Threading;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Windows.Storage;
 
 namespace BandWeatherTask
 {
@@ -47,7 +45,7 @@ namespace BandWeatherTask
             {
                 TypedEventHandler<Geolocator, PositionChangedEventArgs> handler = (sender, args) =>
                 {
-                    result = args.Position.Coordinate.Point;
+                    result  = args.Position.Coordinate.Point;
 
                     waiter.Set();
                 };
@@ -98,29 +96,9 @@ namespace BandWeatherTask
                     taskInstance.Progress = 30;
                     if (!tiles.Any() || isCancelled) return;
 
-                    var point = GetLocation();
-
-                    taskInstance.Progress = 40;
-                    if (point == null) throw new Exception("Timed out while attempting to determine location.");
-                    if (isCancelled) return;
-
-                    ForecastData response = null;
-
-                    for (var i = 0; i < 3; i++)
-                    {
-                        try
-                        {
-                            response = await Forecast.GetForecast(point);
-                            break;
-                        }         
-                        catch
-                        {
-                            await Task.Delay(1000);
-                        }
-                    }
-
+                    var response = await Forecast.GetForecast();
                     taskInstance.Progress = 50;
-                    if (isCancelled || (response == null)) return;
+                    if ((response == null) || isCancelled) return;
 
                     var pages = BandUpdate.GeneratePageData(response);
                     taskInstance.Progress = 60;
