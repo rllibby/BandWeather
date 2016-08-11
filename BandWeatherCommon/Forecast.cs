@@ -103,6 +103,8 @@ namespace BandWeatherCommon
 
                 using (var response = await client.GetAsync(url))
                 {
+                    response.EnsureSuccessStatusCode();
+
                     dynamic f = JsonConvert.DeserializeObject(await response.Content.ReadAsStringAsync());
 
                     var result = new ForecastData();

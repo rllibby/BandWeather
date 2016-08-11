@@ -111,6 +111,7 @@
     <Content Include="Assets\TileLarge.png" />
     <Content Include="Assets\TileSmall.png" />
     <Content Include="Assets\WideLogo.scale-240.png" />
+    <Content Include="StoreManifest.xml" />
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">

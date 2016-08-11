@@ -2,7 +2,6 @@
  *  Copyright © 2016 Russell Libby
  */
 
-using Microsoft.Band;
 using Microsoft.Band.Tiles.Pages;
 using System;
 using System.Collections.Generic;

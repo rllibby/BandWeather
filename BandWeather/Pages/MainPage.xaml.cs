@@ -44,7 +44,7 @@ namespace BandWeather.Pages
         /// <summary>
         /// Async task to get the current location.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>The geo point for the current location.</returns>
         private static async Task<Geopoint> GetLocation()
         {
             var locater = new Geolocator
@@ -228,6 +228,25 @@ namespace BandWeather.Pages
         private async void AddTile(object sender, RoutedEventArgs e)
         {
             await RunBandCheck();
+        }
+
+        /// <summary>
+        /// Shows the last band background sync status.
+        /// </summary>
+        /// <param name="sender">The sender of the event.</param>
+        /// <param name="e">The event arguments.</param>
+        private async void Debug(object sender, RoutedEventArgs e)
+        {
+            var localSettings = ApplicationData.Current.LocalSettings;
+            var debug = localSettings.Values[Common.LastSyncKey];
+
+            if ((debug == null) || string.IsNullOrEmpty(debug.ToString()))
+            {
+                await ShowDialog("No information to display.");
+                return;
+            }
+
+            await ShowDialog(debug.ToString());
         }
 
         /// <summary>

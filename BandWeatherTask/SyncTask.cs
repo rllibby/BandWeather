@@ -15,6 +15,7 @@ using Windows.Foundation;
 using Windows.Devices.Geolocation;
 using System.Threading;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace BandWeatherTask
 {
@@ -74,66 +75,77 @@ namespace BandWeatherTask
         /// Async method to run when the background task is executed.
         /// </summary>
         /// <param name="taskInstance">The background task instance being run.</param>
-        public static async void Run(IBackgroundTaskInstance taskInstance)
+        public static async Task Run(IBackgroundTaskInstance taskInstance)
         {
-            var deferral = taskInstance.GetDeferral();
+            var isCancelled = false;
+
+            BackgroundTaskCanceledEventHandler cancelled = (sender, reason) => { isCancelled = true; };
 
             try
             {
-                var isCancelled = false;
+                var pairedBands = await BandClientManager.Instance.GetBandsAsync(true);
 
-                BackgroundTaskCanceledEventHandler cancelled = (sender, reason) => { isCancelled = true; };
+                taskInstance.Progress = 10;
+                if ((pairedBands.Length < 1) || isCancelled) return;
 
-                try
+                using (var bandClient = await BandClientManager.Instance.ConnectAsync(pairedBands[0]))
                 {
-                    var pairedBands = await BandClientManager.Instance.GetBandsAsync(true);
+                    taskInstance.Progress = 20;
+                    if (isCancelled) return;
 
-                    taskInstance.Progress = 10;
-                    if ((pairedBands.Length < 1) || isCancelled) return;
+                    var tiles = await bandClient.TileManager.GetTilesAsync();
 
-                    using (var bandClient = await BandClientManager.Instance.ConnectAsync(pairedBands[0]))
+                    taskInstance.Progress = 30;
+                    if (!tiles.Any() || isCancelled) return;
+
+                    var point = GetLocation();
+
+                    taskInstance.Progress = 40;
+                    if (point == null) throw new Exception("Timed out while attempting to determine location.");
+                    if (isCancelled) return;
+
+                    ForecastData response = null;
+
+                    for (var i = 0; i < 3; i++)
                     {
-                        taskInstance.Progress = 20;
-                        if (isCancelled) return;
-
-                        var tiles = await bandClient.TileManager.GetTilesAsync();
-
-                        taskInstance.Progress = 30;
-                        if (!tiles.Any() || isCancelled) return;
-
-                        var point = GetLocation();
-
-                        taskInstance.Progress = 40;
-                        if (point == null) throw new Exception("Timed out while attempting to determine location.");
-                        if (isCancelled) return;
-
-                        var response = await Forecast.GetForecast(point);
-
-                        taskInstance.Progress = 50;
-                        if (isCancelled || (response == null)) return;
-
-                        var pages = BandUpdate.GeneratePageData(response);
-                        taskInstance.Progress = 60;
-                        if (isCancelled) return;
-
-                        await bandClient.TileManager.RemovePagesAsync(new Guid(Common.TileGuid));
-                        taskInstance.Progress = 80;
-
-                        await bandClient.TileManager.SetPagesAsync(new Guid(Common.TileGuid), pages as IEnumerable<PageData>);
-                        taskInstance.Progress = 100;
+                        try
+                        {
+                            response = await Forecast.GetForecast(point);
+                            break;
+                        }         
+                        catch
+                        {
+                            await Task.Delay(1000);
+                        }
                     }
+
+                    taskInstance.Progress = 50;
+                    if (isCancelled || (response == null)) return;
+
+                    var pages = BandUpdate.GeneratePageData(response);
+                    taskInstance.Progress = 60;
+                    if (isCancelled) return;
+
+                    await bandClient.TileManager.RemovePagesAsync(new Guid(Common.TileGuid));
+                    taskInstance.Progress = 80;
+
+                    await bandClient.TileManager.SetPagesAsync(new Guid(Common.TileGuid), pages as IEnumerable<PageData>);
+                    taskInstance.Progress = 100;
+
+                    var localSettings = ApplicationData.Current.LocalSettings;
+
+                    localSettings.Values[Common.LastSyncKey] = string.Format("Successful background sync occurred at {0}.", DateTime.Now.ToString());
                 }
-                catch (Exception)
-                {
-                }
-                finally
-                {
-                    taskInstance.Canceled -= cancelled;
-                }
+            }
+            catch (Exception exception)
+            {
+                var localSettings = ApplicationData.Current.LocalSettings;
+
+                localSettings.Values[Common.LastSyncKey] = string.Format("Failed background sync occurred at {0}:\r\n{1}", DateTime.Now.ToString(), exception.ToString());
             }
             finally
             {
-                deferral.Complete();
+                taskInstance.Canceled -= cancelled;
             }
         }
 
