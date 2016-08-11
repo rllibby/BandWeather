@@ -22,51 +22,6 @@ namespace BandWeatherTask
     /// </summary>
     internal static class SyncTask
     {
-        #region Private methods
-
-        /// <summary>
-        /// Gets the current location for the device.
-        /// </summary>
-        /// <returns>The geopoint for the current location.</returns>
-        private static Geopoint GetLocation()
-        {
-            Geopoint result = null;
-
-            var locater = new Geolocator
-            {
-                DesiredAccuracy = PositionAccuracy.Default,
-                DesiredAccuracyInMeters = 5000,
-                ReportInterval = 1000
-            };
-
-            if (locater.LocationStatus == PositionStatus.Disabled) return null;
-
-            using (var waiter = new ManualResetEvent(false))
-            {
-                TypedEventHandler<Geolocator, PositionChangedEventArgs> handler = (sender, args) =>
-                {
-                    result  = args.Position.Coordinate.Point;
-
-                    waiter.Set();
-                };
-
-                locater.PositionChanged += handler;
-
-                try
-                {
-                    waiter.WaitOne(TimeSpan.FromSeconds(10));
-                }
-                finally
-                {
-                    locater.PositionChanged -= handler;
-                }
-            }
-
-            return result;
-        }
-
-        #endregion
-
         #region Public methods
 
         /// <summary>

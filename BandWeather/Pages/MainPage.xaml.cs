@@ -12,7 +12,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.Background;
 using Windows.ApplicationModel.Email;
-using Windows.Devices.Geolocation;
 using Windows.Storage;
 using Windows.UI.Core;
 using Windows.UI.Popups;
@@ -40,23 +39,6 @@ namespace BandWeather.Pages
         #endregion
 
         #region Private methods
-
-        /// <summary>
-        /// Async task to get the current location.
-        /// </summary>
-        /// <returns>The geo point for the current location.</returns>
-        private static async Task<Geopoint> GetLocation()
-        {
-            var locater = new Geolocator
-            {
-                DesiredAccuracy = PositionAccuracy.Default,
-                DesiredAccuracyInMeters = 5000
-            };
-
-            var position = await locater.GetGeopositionAsync(TimeSpan.FromMinutes(30), TimeSpan.FromSeconds(15));
-
-            return position.Coordinate.Point;
-        }
 
         /// <summary>
         /// Unregisters our background task.
