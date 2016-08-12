@@ -73,7 +73,7 @@ namespace BandWeatherCommon
         public string Weather { get; set; }
 
         /// <summary>
-        /// The next 5 days of weather data.
+        /// The next 3 days of weather data.
         /// </summary>
         public IList<DayData> Days
         {
@@ -161,13 +161,11 @@ namespace BandWeatherCommon
                     result.Temp = f.current_observation.temp_f;
                     result.Weather = f.current_observation.weather;
 
-                    var index = 0;
-
                     foreach (var day in f.forecast.simpleforecast.forecastday)
                     {
                         result.Days.Add(new DayData { Day = day.date.weekday_short, High = day.high.fahrenheit, Low = day.low.fahrenheit, Weather = day.conditions });
 
-                        if (++index == 5) break;
+                        if (result.Days.Count > 6) break;
                     }
 
                     return result;

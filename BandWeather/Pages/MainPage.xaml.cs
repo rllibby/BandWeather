@@ -86,6 +86,7 @@ namespace BandWeather.Pages
                 var trigger = new TimeTrigger(32, false);
 
                 taskBuilder.SetTrigger(trigger);
+                taskBuilder.IsNetworkRequested = true;
                 taskBuilder.TaskEntryPoint = typeof(BandWeatherTask.BandWeatherTimerTask).FullName;
                 taskBuilder.Register();
             }
@@ -96,6 +97,7 @@ namespace BandWeather.Pages
                 var trigger = new SystemTrigger(SystemTriggerType.TimeZoneChange, false);
 
                 taskBuilder.SetTrigger(trigger);
+                taskBuilder.IsNetworkRequested = true;
                 taskBuilder.TaskEntryPoint = typeof(BandWeatherTask.BandWeatherSystemTask).FullName;
                 taskBuilder.Register();
             }
